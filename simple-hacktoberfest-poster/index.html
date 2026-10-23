@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hacktoberfest Attending Poster</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f5f8f6;color:#12382d;font-family:Arial,sans-serif}
+main{max-width:1250px;margin:35px auto;padding:20px;display:grid;grid-template-columns:310px 1fr;gap:28px}
+aside{background:white;padding:28px;border-radius:16px;box-shadow:0 5px 24px #1232}
+h1{font-size:26px;margin:0 0 15px}p{color:#64766d;line-height:1.5}
+label{display:block;font-weight:bold;margin:24px 0 9px}
+input[type=text]{width:100%;padding:12px;border:1px solid #cbd8d0;border-radius:9px}
+input[type=file]{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.upload-button{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:12px;border:1px solid #b8d2c6;border-radius:10px;background:#f4faf6;color:#00563e;font-size:15px;font-weight:700;cursor:pointer;transition:background .2s,border-color .2s}
+.upload-button:hover{background:#e7f4ec;border-color:#006244}
+.file-name{display:block;margin-top:7px;color:#64766d;font-size:12px;overflow-wrap:anywhere}
+.adjust-hint{display:block;margin-top:6px;color:#64766d;font-size:12px}\ninput[type=range]{width:100%;accent-color:#006244} .adjust{margin-top:16px;padding:12px;background:#f5f8f6;border-radius:10px}.adjust label{margin:0 0 8px;font-size:13px}.adjust small{color:#64766d}
+button{background:#006244;color:white;border:0;border-radius:10px;padding:15px;width:100%;font-size:16px;font-weight:bold;margin-top:28px;cursor:pointer}
+.preview{min-width:0}canvas{display:block;width:100%;max-width:760px;height:auto;box-shadow:0 7px 28px #1233}
+@media(max-width:750px){main{grid-template-columns:1fr;margin:0;padding:12px}aside{padding:20px}}
+</style></head><body>
+<main><aside><h1>Hacktoberfest<br>Attending Poster</h1><p>Upload your photo and name to create your poster.</p>
+<label for="photo">Your Photo</label><input id="photo" type="file" accept="image/*"><label class="upload-button" for="photo"><span aria-hidden="true">↑</span> Upload Your Photo</label><small class="file-name" id="fileName">No photo selected</small>
+<label for="name">Your Name</label><input id="name" type="text" value="YOUR NAME" maxlength="35">
+<div class="adjust">
+<label for="zoom">Adjust photo <span id="zoomValue">100%</span></label>
+<input id="zoom" type="range" min="85" max="150" value="112" step="1">
+<small class="adjust-hint">Drag photo in the circle to reposition.</small>
+</div>
+<button id="download">↓ Download</button>
+<p id="status"></p></aside><section class="preview"><canvas id="canvas" width="991" height="929"></canvas></section></main>
+<script>
+const canvas=document.getElementById('canvas'),ctx=canvas.getContext('2d');
+const template=new Image();template.src='poster-template.png';
+const nameField=document.getElementById('name'),photoField=document.getElementById('photo');
+const zoomField=document.getElementById('zoom'),zoomValue=document.getElementById('zoomValue');
+const status=document.getElementById('status'),fileName=document.getElementById('fileName');
+let photo=null,zoom=1.12,photoX=0,photoY=-8,dragging=false,lastPointer=null;
+
+function render(){
+ if(!template.complete||!template.naturalWidth)return;
+ ctx.clearRect(0,0,canvas.width,canvas.height);
+ ctx.drawImage(template,0,0,canvas.width,canvas.height);
+ if(photo){
+   const x=211,y=319,r=160;
+   ctx.save();ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.clip();
+   const scale=Math.max(2*r/photo.width,2*r/photo.height)*zoom;
+   const w=photo.width*scale,h=photo.height*scale;
+   ctx.drawImage(photo,x-w/2+photoX,y-h/2+photoY,w,h);
+   ctx.restore();
+ }
+ // Keep the name uppercase as requested.
+ ctx.fillStyle='#fffdf5';ctx.fillRect(51,458,317,65);
+ const name=(nameField.value.trim()||'YOUR NAME').toUpperCase();
+ let font=39;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#003e30';
+ do{ctx.font='900 '+font+'px Arial';if(ctx.measureText(name).width<=300)break;font-=1;}while(font>15);
+ ctx.fillText(name,209,490,300);
+}
+template.onload=render;
+nameField.addEventListener('input',render);
+zoomField.addEventListener('input',()=>{
+ zoom=Number(zoomField.value)/100;
+ zoomValue.textContent=zoomField.value+'%';
+ render();
+});
+photoField.addEventListener('change',()=>{
+ const file=photoField.files[0];if(!file)return;fileName.textContent=file.name;
+ const url=URL.createObjectURL(file);const img=new Image();
+ img.onload=()=>{photo=img;zoom=1;photoX=0;photoY=0;zoomField.value=112;zoomValue.textContent='112%';render();URL.revokeObjectURL(url);status.textContent='Photo uploaded successfully.';};
+ img.onerror=()=>{status.textContent='Please choose a valid image.';URL.revokeObjectURL(url);};
+ img.src=url;
+});
+// Drag photo directly inside the circular frame to position it.
+function pointerPosition(event){
+ const rect=canvas.getBoundingClientRect();
+ return {x:(event.clientX-rect.left)*canvas.width/rect.width,y:(event.clientY-rect.top)*canvas.height/rect.height};
+}
+canvas.addEventListener('pointerdown',event=>{
+ if(!photo)return;
+ const p=pointerPosition(event),dx=p.x-211,dy=p.y-319;
+ if(dx*dx+dy*dy<=160*160){dragging=true;lastPointer=p;canvas.setPointerCapture(event.pointerId);canvas.style.cursor='grabbing';canvas.style.touchAction='none';}
+});
+function clampPhotoPosition(){
+ if(!photo)return;
+ const r=160,scale=Math.max(2*r/photo.width,2*r/photo.height)*zoom;
+ const drawW=photo.width*scale,drawH=photo.height*scale;
+ // Keep the circular frame fully covered so the image cannot slide away and reveal gaps.
+ const maxX=Math.max(0,(drawW-2*r)/2),maxY=Math.max(0,(drawH-2*r)/2);
+ photoX=Math.max(-maxX,Math.min(maxX,photoX));
+ photoY=Math.max(-maxY,Math.min(maxY,photoY));
+}
+canvas.style.touchAction='pan-y';
+canvas.addEventListener('pointermove',event=>{
+ if(!dragging||!lastPointer)return;
+ event.preventDefault();
+ const p=pointerPosition(event);
+ photoX+=p.x-lastPointer.x;photoY+=p.y-lastPointer.y;
+ lastPointer=p;clampPhotoPosition();render();
+});
+function stopDrag(){dragging=false;lastPointer=null;canvas.style.cursor=photo?'grab':'default';canvas.style.touchAction='pan-y';}
+canvas.addEventListener('pointerup',stopDrag);canvas.addEventListener('pointercancel',stopDrag);
+canvas.addEventListener('pointerleave',()=>{if(!dragging)canvas.style.cursor=photo?'grab':'default';});
+canvas.style.cursor='default';
+
+document.getElementById('download').addEventListener('click',()=>{
+ render();canvas.toBlob(blob=>{
+ if(!blob){status.textContent='Could not create poster. Please try again.';return;}
+ const url=URL.createObjectURL(blob),a=document.createElement('a');
+ a.href=url;a.download='hacktoberfest-attending.png';a.click();
+ setTimeout(()=>URL.revokeObjectURL(url),1000);status.textContent='Poster downloaded!';
+ },'image/png');
+});
+</script></body></html>
